@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+secrets/*
+!secrets/.gitkeep
+__pycache__/
+*.pyc
+.venv/
+venv/
+.git/

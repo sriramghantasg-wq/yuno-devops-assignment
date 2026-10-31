@@ -1,0 +1,70 @@
+
+groups:
+  - name: transaction-processor-alerts
+    interval: 5s
+
+    rules:
+
+      # Alert when server-side application errors exceed 1%
+      - alert: TransactionProcessorHighErrorRate
+        expr: |
+          (
+            sum(rate(txn_requests_total{status="error"}[1m]))
+            /
+            clamp_min(sum(rate(txn_requests_total[1m])), 0.001)
+          ) > 0.01
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "High payment API error rate"
+          description: "More than 1% of requests are failing."
+
+      # Alert when p95 latency exceeds 2 seconds
+      - alert: TransactionProcessorHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(txn_request_duration_seconds_bucket{endpoint="/authorize"}[5m])
+            )
+          ) > 2
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 payment latency"
+          description: "p95 authorization latency exceeds 2 seconds."
+
+      # Alert when p99 latency exceeds 3 seconds
+      - alert: TransactionProcessorHighP99Latency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le) (
+              rate(txn_request_duration_seconds_bucket{endpoint="/authorize"}[5m])
+            )
+          ) > 3
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical p99 payment latency"
+          description: "p99 authorization latency exceeds 3 seconds."
+
+      # 99.9% of authorization requests should finish within 2 seconds
+      - alert: TransactionProcessorLatencySLOBreach
+        expr: |
+          (
+            sum(rate(txn_request_duration_seconds_bucket{endpoint="/authorize",le="2"}[5m]))
+            /
+            clamp_min(sum(rate(txn_request_duration_seconds_count{endpoint="/authorize"}[5m])), 0.001)
+          ) < 0.999
+          and
+          sum(rate(txn_request_duration_seconds_count{endpoint="/authorize"}[5m])) > 0.1
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Payment authorization latency SLO breached"
+          description: "Less than 99.9% of authorization requests complete within 2 seconds."
